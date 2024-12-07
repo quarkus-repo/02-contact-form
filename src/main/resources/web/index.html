@@ -1,21 +1,94 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Simple HTML Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulario de Contacto</title>
+    {#bundle /}
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="/static/bundle/styles.css" rel="stylesheet" >
 </head>
-<body>
-    <header>
-        <h1>Welcome to My Simple HTML Page</h1>
-    </header>
-    <main>
-        <p>This is a paragraph of text on my simple HTML page.</p>
-    </main>
-    <footer>
-        <p>&copy; 2024 My Simple HTML Page</p>
-    </footer>
+<body class="bg-gray-100">
+<div id="app" class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl m-8">
+    <div class="p-8">
+        <h1 class="uppercase tracking-wide text-sm text-indigo-500 font-semibold mb-4">{{ title }}</h1>
+        <form @submit.prevent="submitForm" class="space-y-4">
+            <div>
+                <label for="name" class="block text-gray-700 text-sm font-bold mb-2">Nombre:</label>
+                <input v-model="formData.name" type="text" id="name" required
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div>
+                <label for="email" class="block text-gray-700 text-sm font-bold mb-2">Correo electrónico:</label>
+                <input v-model="formData.email" type="email" id="email" required
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div>
+                <label class="flex items-center">
+                    <input v-model="formData.dataProtection" type="checkbox" id="dataProtection" required class="mr-2">
+                    <span class="text-sm">Acepto el tratamiento de mis datos personales</span>
+                </label>
+            </div>
+            <div>
+                <button type="submit"
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Enviar
+                </button>
+            </div>
+        </form>
+        <!-- Mensaje de éxito -->
+        <p v-if="mensaje" class="mt-4 text-green-600">{{ mensaje }}</p>
+        <!-- Mensaje de error -->
+        <p v-if="error" class="mt-4 text-red-600">{{ error }}</p>
+    </div>
+</div>
+
+<script type="module">
+    const { createApp, ref } = Vue
+
+    createApp({
+        setup() {
+            const title = ref('Formulario de Contacto')
+            const formData = ref({
+                name: '',
+                email: '',
+                dataProtection: false
+            })
+            const mensaje = ref('')
+            const error = ref('')
+
+            const submitForm = async () => {
+                try {
+                    const response = await fetch('/api/contact', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(formData.value),
+                    })
+                    const data = await response.json()
+                    if (response.ok) {
+                        mensaje.value = 'Formulario enviado con éxito.'
+                        error.value = ''
+                    } else {
+                        throw new Error(data.error || 'Error al enviar el formulario')
+                    }
+                } catch (e) {
+                    error.value = e.message || 'Ocurrió un error al enviar el formulario.'
+                    mensaje.value = ''
+                }
+            }
+
+            return {
+                title,
+                formData,
+                mensaje,
+                error,
+                submitForm
+            }
+        }
+    }).mount('#app')
+</script>
 </body>
 </html>
