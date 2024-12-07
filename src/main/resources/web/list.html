@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listado de Contactos</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100">
+<div id="app" class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden m-8">
+    <div class="p-8">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6">{{ title }}</h1>
+
+        <!-- Barra de búsqueda -->
+        <div class="mb-4">
+            <input v-model="searchEmail" type="email" placeholder="Buscar por email"
+                   class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <!-- Lista de contactos con computed property -->
+        <div v-if="filteredContacts.length > 0">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="contact in filteredContacts" :key="contact.id">
+                    <td class="px-6 py-4 whitespace-nowrap">{{ contact.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ contact.email }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <button @click="editContact(contact)"
+                                class="mr-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded">
+                            Editar
+                        </button>
+                        <button @click="deleteContact(contact.id)"
+                                class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded">
+                            Eliminar
+                        </button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <p v-else class="text-gray-600">No hay contactos disponibles.</p>
+
+        <!-- Mensajes de estado -->
+        <transition name="fade">
+            <p v-if="message" class="mt-4 text-green-600">{{ message }}</p>
+        </transition>
+        <transition name="fade">
+            <p v-if="error" class="mt-4 text-red-600">{{ error }}</p>
+        </transition>
+    </div>
+
+    <!-- Modal de edición usando teleport -->
+    <teleport to="body">
+        <div v-if="showEditModal" class="fixed z-10 inset-0 overflow-y-auto">
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                    <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+                </div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                <div
+                        class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <form @submit.prevent="updateContact" class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Editar Contacto</h3>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Nombre</label>
+                                        <input v-model="editingContact.name" type="text" required
+                                               class="mt-1 shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Email</label>
+                                        <input v-model="editingContact.email" type="email" required
+                                               class="mt-1 shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse mt-4">
+                            <button type="submit"
+                                    class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                                Guardar
+                            </button>
+                            <button @click="closeModal" type="button"
+                                    class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm">
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </teleport>
+</div>
+
+<script type="module">
+    const { createApp, ref, computed, onMounted } = Vue
+
+    createApp({
+      setup() {
+        const title = ref('Listado de Contactos')
+        const contacts = ref([])
+        const searchEmail = ref('')
+        const message = ref('')
+        const error = ref('')
+        const editingContact = ref({})
+        const showEditModal = ref(false)
+
+        // Computed property para filtrar contactos
+        const filteredContacts = computed(() => {
+          const search = searchEmail.value.toLowerCase().trim()
+          return search === ''
+            ? contacts.value
+            : contacts.value.filter(contact =>
+              contact.email.toLowerCase().includes(search))
+        })
+
+        // Temporizador para limpiar mensajes
+        const clearMessage = (type) => {
+          setTimeout(() => {
+            if (type === 'error') error.value = ''
+            else message.value = ''
+          }, 3000)
+        }
+
+        // API calls
+        const api = {
+          async fetchContacts() {
+            const response = await fetch('/api/contact')
+            if (!response.ok) throw new Error('Error al cargar los contactos')
+            return response.json()
+          },
+
+          async updateContact(contact) {
+
+            const response = await fetch('/api/contact/' + contact.id, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(contact)
+            })
+            if (!response.ok) throw new Error('Error al actualizar el contacto')
+            return response.json()
+          },
+
+          async deleteContact(id) {
+
+            const response = await fetch('/api/contact/' + id, {
+              method: 'DELETE'
+            })
+            if (!response.ok) {
+              // Si el status no es 2xx, lanzamos un error con el mensaje del servidor
+              const errorText = await response.text();
+              throw new Error(errorText || 'Error al eliminar el contacto');
+            }
+
+            // Intentamos parsear la respuesta como JSON solo si hay contenido
+            if (response.status !== 204) { // 204 significa "No Content"
+              try {
+                return await response.json();
+              } catch {
+                // Si no hay JSON, solo retornamos true para indicar éxito
+                return true;
+              }
+            }
+
+            return true; // Éxito en caso de 204
+          }
+
+        }
+
+        // Actions
+        const fetchContacts = async () => {
+          try {
+            contacts.value = await api.fetchContacts()
+          } catch (err) {
+            error.value = err.message
+            clearMessage('error')
+          }
+        }
+
+        const editContact = (contact) => {
+          editingContact.value = { ...contact }
+          showEditModal.value = true
+        }
+
+        const closeModal = () => {
+          showEditModal.value = false
+          editingContact.value = {}
+        }
+
+        const updateContact = async () => {
+          try {
+            const updatedContact = await api.updateContact(editingContact.value)
+            const index = contacts.value.findIndex(c => c.id === updatedContact.id)
+            if (index !== -1) contacts.value[index] = updatedContact
+
+            closeModal()
+            message.value = 'Contacto actualizado correctamente'
+            clearMessage('success')
+          } catch (err) {
+            error.value = err.message
+            clearMessage('error')
+          }
+        }
+
+        const deleteContact = async (id) => {
+          try {
+            await api.deleteContact(id)
+            contacts.value = contacts.value.filter(contact => contact.id !== id)
+            message.value = 'Contacto eliminado correctamente'
+            clearMessage('success')
+          } catch (err) {
+            error.value = err.message || 'Error al eliminar el contacto';
+            clearMessage('error')
+          }
+        }
+
+        onMounted(fetchContacts)
+
+        return {
+          title,
+          contacts,
+          searchEmail,
+          message,
+          error,
+          editingContact,
+          showEditModal,
+          filteredContacts,
+          editContact,
+          updateContact,
+          deleteContact,
+          closeModal
+        }
+      }
+    }).mount('#app')
+</script>
+
+<style>
+    .fade-enter-active,
+    .fade-leave-active {
+      transition: opacity 0.3s ease;
+    }
+
+    .fade-enter-from,
+    .fade-leave-to {
+      opacity: 0;
+    }
+</style>
+</body>
+
+</html>
